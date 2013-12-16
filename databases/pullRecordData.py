@@ -1,21 +1,31 @@
 import os,sys
-from optparse import OptionParser
 import urllib,urllib2
 import json
 import os.path
 import xml.etree.ElementTree as ET
 import sqlite3
-
-sys.path.insert(0, '%s/../' % os.path.dirname(__file__))
-
 import ebaysdk
 from ebaysdk import finding,trading,shopping
-from reggaeXML import *
 from copy import *
+from optparse import OptionParser
+sys.path.insert(0, '%s/../' % os.path.dirname(__file__))
 
-#AppID = DavidNic-a026-403b-ade6-36262dc260a3
-#certid='625388f8-ad85-4536-88d8-256113d58703', 
-#devid='8b39a15d-e703-47bf-a7e7-db027f79100d'
+
+#########################################################################################################
+
+
+## Using this file requires that the eBay python API is already installed. The APPID, CERTID, and DEVID
+## global variables must be updated below with those found in the users eBay developer accounts.
+
+## Update the lines below with the information from your eBay developer account.
+APPID = 'DavidNic-a026-403b-ade6-36262dc260a3'
+CERTID = '625388f8-ad85-4536-88d8-256113d58703'
+DEVID = '8b39a15d-e703-47bf-a7e7-db027f79100d'
+
+
+#########################################################################################################
+
+
 
 def init_options():
     ''' Straight up copy from eBay-API examples. Necessary for API calls ''' 
@@ -40,9 +50,9 @@ def getSingleItem(opts,itemNumber,printXMLList=True,textDescription = True):
     ''' This gets the results from a single ebay item. Takes eBay item # as input '''
     
     #Create API object
-    api = shopping(debug=False, appid='DavidNic-a026-403b-ade6-36262dc260a3',
-                   config_file='ebay.yaml',certid='625388f8-ad85-4536-88d8-256113d58703', 
-                   devid='8b39a15d-e703-47bf-a7e7-db027f79100d')         
+    api = shopping(debug=False, appid=APPID,
+                   config_file='ebay.yaml',certid=CERTID, 
+                   devid=DEVID)         
     
     #Define arguments for API call
     if textDescription:
@@ -58,39 +68,26 @@ def getSingleItem(opts,itemNumber,printXMLList=True,textDescription = True):
     api.execute('GetSingleItem', args)
     responseString = api.response_content()
     
-  #  if printXMLList: #For debugging / more info
-  #      printXML(responseString)
-    
-    return responseString
-    
+    '''if printXMLList: #For debugging / more info
+        print "asdf"
+        printXML(responseString)
 
-def getSingleItem2(opts,itemNumber,printXMLList=True,textDescription = False,printFileResults=False):
-    ''' This gets the results from a single ebay item. Takes eBay item # as input '''
-    
-    #Create API object
-    api = trading(debug=False, appid='DavidNic-a026-403b-ade6-36262dc260a3',
-                   config_file='ebay.yaml',certid='625388f8-ad85-4536-88d8-256113d58703', 
-                   devid='8b39a15d-e703-47bf-a7e7-db027f79100d')         
-    
-    #Define arguments for API call
-    if textDescription: args = {'ItemID':str(itemNumber),'IncludeSelector':'TextDescription'}
-    else: args = {'ItemID':str(itemNumber),'IncludeSelector':'Description','IncludeSelector':'ItemSpecifics'}
+    etree = ET.fromstring(responseString)
+    print etree[0]
+    print etree.find("Item").find("BidCount").text
+    print etree.find("BestOfferEnabled")
+    print
+    print type(simpleXmlGet(responseString,'ItemID'))
+    print type(etree.find("Item").find("ItemID").text)
 
-    #API call
-    api.execute('GetItem', args)
-    responseString = api.response_content()
+    return responseString'''
     
-  #  if printXMLList: #For debugging / more info
-  #      printXML(responseString)
-                
-    return responseString
-
 def searchKeyword(opts,keyword,categoryID,toFile=False,complete=False,fakeResponse=False,user='',reggae=False,sortStartNewest=True,printOutput=False,soldOnly=False,pageNumber=1,parseReturn=False,pagenum=1):
     '''Search by keyword for current listings, completed listings, only listings that sold. Can give fake response for offline debugging.'''
 
     #Create API object
     api = finding(siteid='EBAY-US', debug=False, 
-                  appid='DavidNic-a026-403b-ade6-36262dc260a3', 
+                  appid=APPID, 
                   config_file=opts.yaml,
                   warnings=True)
     
@@ -165,9 +162,10 @@ def parseItemSpecifics(itemSpecificsXml):
     
 
 def insertNewItemIntoDb(db,ebayResponse):
-
-
     #need to parse the ebay response for everything i want, set variables, put them into exstring
+
+
+
 
     #Retrieve all information from the ebay xml string
     itemid = simpleXmlGet(ebayResponse,'ItemID')
@@ -292,6 +290,8 @@ def updateSingleEntry(db,opts,itemid):
 def ebayScrape():
     '''Main method'''
 
+
+
     training_set = raw_input("Which set? (1 - training, 2 - reggae, 3 - generalrecords) " )
 
     if training_set=='1':
@@ -386,12 +386,6 @@ def ebayScrape():
                 
                 if row[6]!='true':
                     updateSingleEntry(db,opts,row[0])
-
-            
-            
-            
-
-
 
         elif toDo =="9":
 
@@ -565,9 +559,20 @@ def parseSingleItemXML(xmlString):
 
     return returnList
 
+
+
+## This takes the output of a keyword search (eg searchKeyword function), and parses the XML
+## response string
+##    -- needs to be reimplemented using import xml.etree.ElementTree as ET 
+##    -- each item in returnList is an eBay auction. Each key/value in the auction's dictionary
+##       is something like itemID, title, galleryListing, etc.
+#  @param   {string}          xmlString
+#  @return  {list[Dict[]]}    returnList
 def parseXML(xmlString):
     ''' This could be done much better ... '''
     root = ET.fromstring(xmlString)
+
+    print parseXML(xmlString);
 
     returnList=[]
    
@@ -610,12 +615,16 @@ def parseXML(xmlString):
     return returnList
 
 
+
+## This takes XML in string format and prints the entire tree to the console in a neat format.
+## Good for visualizing the eBay XML response strings. Does not return anything.
+##    --  Hacked together, only goes 4 levels deep.
+##    --  Would like to re-implement this recursively or using import xml.etree.ElementTree as ET
+#  @param   {string}  xmlString
 def printXML(xmlString):
-    ''' This could be done much better ... '''
     root = ET.fromstring(xmlString)
 
     returnList=[]
-   
     for i in range(0,len(root)):
         print root[i].tag,root[i].attrib,root[i].text
 
@@ -627,7 +636,6 @@ def printXML(xmlString):
 
                 for iiii in range(0,len(root[i][ii][iii])):
                     print '\t\t\t',root[i][ii][iii][iiii].tag,root[i][ii][iii][iiii].attrib,root[i][ii][iii][iiii].text
-
 
 
 
