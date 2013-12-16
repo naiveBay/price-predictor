@@ -616,6 +616,7 @@ def parseXML(xmlString):
 
 
 
+
 ## This takes XML in string format and prints the entire tree to the console in a neat format.
 ## Good for visualizing the eBay XML response strings. Does not return anything.
 ##    --  Hacked together, only goes 4 levels deep.
