@@ -68,19 +68,12 @@ def getSingleItem(opts,itemNumber,printXMLList=True,textDescription = True):
     api.execute('GetSingleItem', args)
     responseString = api.response_content()
     
-    '''if printXMLList: #For debugging / more info
-        print "asdf"
-        printXML(responseString)
+  #  if printXMLList: #For debugging / more info
+  #      printXML(responseString)
 
-    etree = ET.fromstring(responseString)
-    print etree[0]
-    print etree.find("Item").find("BidCount").text
-    print etree.find("BestOfferEnabled")
-    print
-    print type(simpleXmlGet(responseString,'ItemID'))
-    print type(etree.find("Item").find("ItemID").text)
-
-    return responseString'''
+  
+    
+    return responseString
     
 def searchKeyword(opts,keyword,categoryID,toFile=False,complete=False,fakeResponse=False,user='',reggae=False,sortStartNewest=True,printOutput=False,soldOnly=False,pageNumber=1,parseReturn=False,pagenum=1):
     '''Search by keyword for current listings, completed listings, only listings that sold. Can give fake response for offline debugging.'''
@@ -163,9 +156,6 @@ def parseItemSpecifics(itemSpecificsXml):
 
 def insertNewItemIntoDb(db,ebayResponse):
     #need to parse the ebay response for everything i want, set variables, put them into exstring
-
-
-
 
     #Retrieve all information from the ebay xml string
     itemid = simpleXmlGet(ebayResponse,'ItemID')
@@ -559,20 +549,9 @@ def parseSingleItemXML(xmlString):
 
     return returnList
 
-
-
-## This takes the output of a keyword search (eg searchKeyword function), and parses the XML
-## response string
-##    -- needs to be reimplemented using import xml.etree.ElementTree as ET 
-##    -- each item in returnList is an eBay auction. Each key/value in the auction's dictionary
-##       is something like itemID, title, galleryListing, etc.
-#  @param   {string}          xmlString
-#  @return  {list[Dict[]]}    returnList
 def parseXML(xmlString):
     ''' This could be done much better ... '''
     root = ET.fromstring(xmlString)
-
-    print parseXML(xmlString);
 
     returnList=[]
    
@@ -615,17 +594,12 @@ def parseXML(xmlString):
     return returnList
 
 
-
-
-## This takes XML in string format and prints the entire tree to the console in a neat format.
-## Good for visualizing the eBay XML response strings. Does not return anything.
-##    --  Hacked together, only goes 4 levels deep.
-##    --  Would like to re-implement this recursively or using import xml.etree.ElementTree as ET
-#  @param   {string}  xmlString
 def printXML(xmlString):
+    ''' This could be done much better ... '''
     root = ET.fromstring(xmlString)
 
     returnList=[]
+   
     for i in range(0,len(root)):
         print root[i].tag,root[i].attrib,root[i].text
 
