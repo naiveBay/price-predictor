@@ -22,16 +22,15 @@ APPID = 'DavidNic-a026-403b-ade6-36262dc260a3'
 CERTID = '625388f8-ad85-4536-88d8-256113d58703'
 DEVID = '8b39a15d-e703-47bf-a7e7-db027f79100d'
 
+## Will be important to check over word list and fix things like " = &quot;. 
 
 #########################################################################################################
 
-## Used to get information for a single given eBay item via its item number.
-#  @param  { Dict }     opts, from init_options
+## Used to get information for a single eBay item given its item number.
 #  @param  { Str  }     itemNumber
 #  @return { Str  }     XML string output from API call
-def getSingleItem(itemNumber):
-    ''' This gets the results from a single ebay item. Takes eBay item # as input '''
-    
+def getSingleItem(itemNumber): 
+
     ## Create API object
     api = shopping(debug=False, appid=APPID,
                    config_file='ebay.yaml',certid=CERTID, 
@@ -46,107 +45,101 @@ def getSingleItem(itemNumber):
     api.execute('GetSingleItem', args)
 
     ## Return XML String
-    return api.response_content()        
-    
-def searchKeyword(opts,keyword,categoryID,complete=False,reggae=False,printOutput=False,soldOnly=False,pagenum=1):
-    '''Search by keyword for current listings, completed listings, only listings that sold.'''
+    return api.response_content()  
 
+    
+## Used to query eBay for a keyword search. Returns XML string response.
+#  @param  { Str  }     keyword
+#  @param  { Str  }     categoryID  (ID number)
+#  @param  { Bool }     complete    (returns only items that have completed)
+#  @param  { Bool }     reggae      (searches only the reggae genre, requires that categoryID = 176985)
+#  @param  { int  }     pagenum     (100 items max returned, this chooses which page of 100 to return)
+#  @return { Str  }     XML string output from API call
+def searchKeyword(keyword,categoryID,complete=False,reggae=False,pagenum=1):
     ## Create API object
     api = finding(siteid='EBAY-US', debug=False, 
                   appid=APPID, 
-                  config_file=opts.yaml,
+                  config_file='ebay.yaml',
                   warnings=True)
     
     if complete: callFunction = 'findCompletedItems'
     else:  callFunction = 'findItemsAdvanced'
     
+    ## Define args for API call.
     args = {'categoryId' : categoryID,  
                 'sortOrder' : 'StartTimeNewest',
-                'outputSelector': 'SellerInfo',
-                'outputSelector': 'AspectHistogram',
+                'outputSelector': 'SellerInfo,AspectHistogram',    
                 'itemFilter': {'name':'ListingType','value':'Auction'},
                 'paginationInput': { 'entriesPerPage' : 100, 'pageNumber' : pagenum}}
-    if soldOnly: args['itemFilter'] = {'name': 'SoldItemsOnly', 'value':'true'}
     if reggae: args['aspectFilter'] = { 'aspectName' : 'Genre', 'aspectValueName':'Reggae, Ska & Dub'}
     if keyword!='': args['keywords'] = keyword
 
-    #Make API call or generate fake response           
+    ## Make API call          
     api.execute(callFunction, args)
-    responseString = api.response_content()
 
-    if printOutput: 
-        totalPages = simpleXmlGet(responseString,'totalPages')
-        responseDict = parseXML(responseString)
-        for record in responseDict: print record['itemId'],'  ',record['currentUSD'],'  ',record['endTime'],'  ',record['title']
-        print '\n','Total pages found = ',totalPages,' ... Total items printed = ', len(responseDict)
+    ## Return XML String
+    return api.response_content()
 
-    return responseString
-
-def simpleXmlGet(xmlString,query):
-    start = xmlString.find('<'+query+'>')
-    if start != -1:
-        end = xmlString.find('</'+query+'>')
-        return xmlString[start+len('<'+query+'>'):end]
-    else: 
-        opentagstart = xmlString.find('<'+query)
-        if opentagstart != -1:
-            opentagend = xmlString.find('>',opentagstart)
-            end = xmlString.find('</'+query+'>')
-            return xmlString[opentagend+1:end]
-        else: return ''
-            
-def parseItemSpecifics(itemSpecificsXml):
-    start = 0
-    retstring = '['
-    while itemSpecificsXml.find('<NameValueList>')!=-1:
-        namevaluelist = simpleXmlGet(itemSpecificsXml,'NameValueList')
+def addItemsToDb(db,category,keywords,reggaeonly=False,pagenumber=1):
+    print category, " / ",keywords
    
-        name = simpleXmlGet(namevaluelist,'Name')
-        value = simpleXmlGet(namevaluelist,'Value')
-        retstring += "{'"+name+"','"+value+"'},"
+    responseString=searchKeyword(keywords, 
+                                    categoryID=category,
+                                    complete=False,
+                                    reggae=reggaeonly,
+                                    pagenum=pagenumber)
 
-        nvend = itemSpecificsXml.find('</NameValueList>')
-        itemSpecificsXml = itemSpecificsXml[nvend+len('</NameValueList>'):]
-
-    return retstring[:-1]+']'
+    responseDict = parseXML(responseString)
     
+    i=0
+    for item in responseDict:               
+        query="SELECT * FROM training_set WHERE itemid='"+item['itemId']+"'"
+        results = list(db.execute(query))
+        if len(results)==0:
+            print item['itemId']
+            insertNewItemIntoDb(db,getSingleItem(item['itemId']))
+            i+=1
+
+    print category, " / ",keywords,": ",i," added"
+    print
+
 
 def insertNewItemIntoDb(db,ebayResponse):
     #need to parse the ebay response for everything i want, set variables, put them into exstring
 
     root = ET.fromstring(ebayResponse)
     item = root.find('Item')
-    #printXML(ebayResponse)
  
     #Retrieve all information from the ebay xml string
-    itemid = item.findtext('ItemID','')
-    title = item.findtext('Title','').replace("'","''")
-    subtitle = item.findtext('Subtitle','').replace("'","''")
-    starttime = item.findtext('StartTime','')
-    endtime = item.findtext('EndTime','')
-    timestamp = root.findtext('Timestamp','')
-    categoryidprimary = item.findtext('PrimaryCategoryID','')
-    categoryidsecondary = item.findtext('SecondaryCategoryID','')
-    conditionid = item.findtext('ConditionID','')
-    description = item.findtext('Description','').replace("'","''")
-    sellerfeedbackscore = item.find('Seller').findtext('FeedbackScore','')
-    sellerfeedbackpercent = item.find('Seller').findtext('PositiveFeedbackPercent','') 
-    returnpolicy =  item.find('ReturnPolicy').findtext('ReturnsAccepted','') 
-    topratedlisting = item.findtext('TopRatedListing','')
-    globalshipping = item.findtext('GlobalShipping','')
+    itemid                  = item.findtext('ItemID','')
+    title                   = item.findtext('Title','').replace("'","''").encode('utf-8')
+    subtitle                = item.findtext('Subtitle','').replace("'","''").encode('utf-8')
+    starttime               = item.findtext('StartTime','')
+    endtime                 = item.findtext('EndTime','')
+    timestamp               = root.findtext('Timestamp','')
+    categoryidprimary       = item.findtext('PrimaryCategoryID','')
+    categoryidsecondary     = item.findtext('SecondaryCategoryID','')
+    conditionid             = item.findtext('ConditionID','')
+    description             = item.findtext('Description','').replace("'","''").encode('utf-8')
+    sellerfeedbackscore     = item.find('Seller').findtext('FeedbackScore','')
+    sellerfeedbackpercent   = item.find('Seller').findtext('PositiveFeedbackPercent','') 
+    returnpolicy            =  item.find('ReturnPolicy').findtext('ReturnsAccepted','') 
+    topratedlisting         = item.findtext('TopRatedListing','')
+    globalshipping          = item.findtext('GlobalShipping','')
 
     if ebayResponse.find('need more data to calculate shipping cost')!=-1:
         shippingcost=''
     else:
-        shippingcost = simpleXmlGet(ebayResponse,'ShippingServiceCost')
+        shippingcost = item.find('ShippingCostSummary').findtext('ShippingServiceCost','')
 
-    picture = simpleXmlGet(ebayResponse,'PictureURL')
-    currentprice = "[{'"+ timestamp + "','" + simpleXmlGet(ebayResponse,'CurrentPrice') + "'}]"
-    bidcount = "[{'"+ timestamp + "','" + simpleXmlGet(ebayResponse,'BidCount') + "'}]"
-    hitcount = "[{'"+ timestamp + "','" + simpleXmlGet(ebayResponse,'HitCount') + "'}]"
-    if simpleXmlGet(ebayResponse,'ItemSpecifics')!=None:
-        itemspecifics = parseItemSpecifics(simpleXmlGet(ebayResponse,'ItemSpecifics'))
-    else: itemspecifics = None
+    picture = item.findtext('PictureURL','')
+    currentprice = "[{'"+ timestamp + "','" + item.findtext('CurrentPrice','')  + "'}]"
+    bidcount = "[{'"+ timestamp + "','" + item.findtext('BidCount','') + "'}]"
+    hitcount = "[{'"+ timestamp + "','" + item.findtext('HitCount','') + "'}]"
+    if item.find('ItemSpecifics')!=None:
+        itemspecifics = parseItemSpecifics(item.find('ItemSpecifics'))
+        itemspecifics = itemspecifics.replace("'","''")
+    else: itemspecifics = ""
     if timestamp>endtime: complete = 'true'
     else: complete = 'false'
 
@@ -154,30 +147,31 @@ def insertNewItemIntoDb(db,ebayResponse):
     currentprice = currentprice.replace("'","''")
     bidcount = bidcount.replace("'","''")
     hitcount = hitcount.replace("'","''")
-    itemspecifics = itemspecifics.replace("'","''")
- 
-    if simpleXmlGet(ebayResponse,'BidCount')=="0":
-        startprice=simpleXmlGet(ebayResponse,'CurrentPrice')
+
+    if item.findtext('BidCount','')=="0":
+        startprice=item.findtext('CurrentPrice','')
     else:
         startprice='unknown'
 
     if complete=='true':
-        endprice=simpleXmlGet(ebayResponse,'CurrentPrice')
+        endprice=item.findtext('CurrentPrice','')
     else: endprice=''
     
     query="INSERT INTO training_set VALUES ('"+ itemid + "','" + title + "','" + subtitle + "','" + starttime + "','" + endtime + "','" + timestamp + "','" + complete + "','" + categoryidprimary + "','" + categoryidsecondary + "','" + conditionid + "','" + sellerfeedbackscore + "','" + sellerfeedbackpercent + "','" + returnpolicy + "','" + topratedlisting + "','" + shippingcost + "','" + globalshipping + "','" + description + "','" + picture + "','" + itemspecifics + "','" + currentprice + "','" + bidcount + "','" + hitcount + "','" + startprice + "','" + endprice + "')"
 
     db.execute(query)
     
+def updateSingleEntry(db,itemid):
 
-def updateSingleEntry(db,opts,itemid):
+    root = ET.fromstring(getSingleItem(itemid))
+    item = root.find('Item')
 
-    ebayResponse = getSingleItem(itemid)
-    endtime = simpleXmlGet(ebayResponse,'EndTime')
-    timestamp = simpleXmlGet(ebayResponse,'Timestamp') 
-    currentprice = ",{'"+ timestamp + "','" + simpleXmlGet(ebayResponse,'CurrentPrice') + "'}]"
-    bidcount = ",{'"+ timestamp + "','" + simpleXmlGet(ebayResponse,'BidCount') + "'}]"
-    hitcount = ",{'"+ timestamp + "','" + simpleXmlGet(ebayResponse,'HitCount') + "'}]"
+    endtime = item.findtext('EndTime','')
+    timestamp = root.findtext('Timestamp','')
+
+    currentprice = ",{'"+ timestamp + "','" + item.findtext('CurrentPrice','') + "'}]"
+    bidcount = ",{'"+ timestamp + "','" + item.findtext('BidCount','') + "'}]"
+    hitcount = ",{'"+ timestamp + "','" + item.findtext('HitCount','') + "'}]"
     
     if timestamp>endtime: complete = 'true'
     else: complete = 'false'
@@ -196,14 +190,12 @@ def updateSingleEntry(db,opts,itemid):
     
     if complete=='true':
         db.execute("UPDATE training_set SET complete='"+complete+"' WHERE itemid='" + itemid + "'")
-        db.execute("UPDATE training_set SET endprice='"+simpleXmlGet(ebayResponse,'CurrentPrice')+"' WHERE itemid='" + itemid + "'")
+        db.execute("UPDATE training_set SET endprice='"+item.findtext('CurrentPrice','') +"' WHERE itemid='" + itemid + "'")
 
-        
-
+    
 def ebayScrape():
     '''Main method'''
 
-    (opts, args) = init_options()
     conn = sqlite3.connect('record_set.db')
     db = conn.cursor()
 
@@ -246,47 +238,24 @@ def ebayScrape():
                 print i,len(results)
                 
                 if row[6]!='true':
-                    updateSingleEntry(db,opts,row[0])
+                    updateSingleEntry(db,row[0])
 
         elif toDo == "11":
-            addItemsToDb(db,opts,"176985","",reggaeonly=True)
-            addItemsToDb(db,opts,"176985","",reggaeonly=True,pagenumber=2)
-            addItemsToDb(db,opts,"176985","",reggaeonly=True,pagenumber=3)
+            addItemsToDb(db,"176985","",reggaeonly=True)
+            addItemsToDb(db,"176985","",reggaeonly=True,pagenumber=2)
+            addItemsToDb(db,"176985","",reggaeonly=True,pagenumber=3)
 
         elif toDo == "12":
-            addItemsToDb(db,opts,"176985","",reggaeonly=False)
-            addItemsToDb(db,opts,"176985","",reggaeonly=False,pagenumber=2)
-            addItemsToDb(db,opts,"176985","",reggaeonly=False,pagenumber=3)
-            addItemsToDb(db,opts,"176985","",reggaeonly=False,pagenumber=4)
+            addItemsToDb(db,"176985","",reggaeonly=False)
+            addItemsToDb(db,"176985","",reggaeonly=False,pagenumber=2)
+            addItemsToDb(db,"176985","",reggaeonly=False,pagenumber=3)
+            addItemsToDb(db,"176985","",reggaeonly=False,pagenumber=4)
 
         else:
             print "no comprendo"
 
         conn.commit()
 
-def addItemsToDb(db,opts,category,keywords,reggaeonly=False,pagenumber=1):
-    print category, " / ",keywords
-   
-    responseString=searchKeyword(opts,keywords, 
-                                    categoryID=category,
-                                    complete=False,
-                                    printOutput=False,
-                                    reggae=reggaeonly,
-                                    pagenum=pagenumber)
-
-    responseDict = parseXML(responseString)
-    
-    i=0
-    for item in responseDict:               
-        query="SELECT * FROM training_set WHERE itemid='"+item['itemId']+"'"
-        results = list(db.execute(query))
-        if len(results)==0:
-            print item['itemId']
-            insertNewItemIntoDb(db,getSingleItem(item['itemId']))
-            i+=1
-
-    print category, " / ",keywords,": ",i," added"
-    print
 
 
 def parseXML(xmlString):
@@ -331,24 +300,13 @@ def printXML(xmlString):
                 for iiii in range(0,len(root[i][ii][iii])):
                     print '\t\t\t',root[i][ii][iii][iiii].tag,root[i][ii][iii][iiii].attrib,root[i][ii][iii][iiii].text
 
-def init_options():
-    ''' Straight up copy from eBay-API examples. Necessary for API calls ''' 
+def parseItemSpecifics(itemspecET):
+    retstring = '[';
+    for nameValuePair in itemspecET.findall('NameValueList'):
+        retstring += "{'" + nameValuePair.findtext('Name') + "','" + nameValuePair.findtext('Value') +  "'},"
+    return retstring[:-1]+']'
 
-    usage = "usage: %prog [options]"
-    parser = OptionParser(usage=usage)
-    
-    parser.add_option("-d", "--debug",
-                      action="store_true", dest="debug", default=False,
-                      help="Enabled debugging [default: %default]")
-    parser.add_option("-y", "--yaml",
-                      dest="yaml", default='ebay.yaml',
-                      help="Specifies the name of the YAML defaults file. [default: %default]")
-    parser.add_option("-a", "--appid",
-                      dest="appid", default=None,
-                      help="Specifies the eBay application id to use.")
 
-    (opts, args) = parser.parse_args()
-    return opts, args
 
 if __name__ == "__main__":
     ebayScrape()
