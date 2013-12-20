@@ -14,8 +14,9 @@ sys.path.insert(0, '%s/../' % os.path.dirname(__file__))
 #########################################################################################################
 
 
-## Using this file requires that the eBay python API is already installed. The APPID, CERTID, and DEVID
-## global variables must be updated below with those found in the users eBay developer accounts.
+## Using this file requires that the eBay python API (ebaysdk) is already installed. The APPID, CERTID, 
+## and DEVID global variables must be updated below with those found in the users eBay developer 
+## accounts.
 
 ## Update the lines below with the information from your eBay developer account.
 APPID = 'DavidNic-a026-403b-ade6-36262dc260a3'
@@ -47,15 +48,15 @@ def getSingleItem(itemNumber):
     ## Return XML String
     return api.response_content()  
 
-    
 ## Used to query eBay for a keyword search. Returns XML string response.
 #  @param  { Str  }     keyword
 #  @param  { Str  }     categoryID  (ID number)
 #  @param  { Bool }     complete    (returns only items that have completed)
 #  @param  { Bool }     reggae      (searches only the reggae genre, requires that categoryID = 176985)
-#  @param  { int  }     pagenum     (100 items max returned, this chooses which page of 100 to return)
+#  @param  { int  }     maxresults  (number of items per page to return; max=100)
+#  @param  { int  }     pagenum     (100 items max returned, this chooses which page to return)
 #  @return { Str  }     XML string output from API call
-def searchKeyword(keyword,categoryID,complete=False,reggae=False,pagenum=1):
+def searchKeyword(keyword,categoryID,complete=False,reggae=False,maxresults=100,pagenum=1):
     ## Create API object
     api = finding(siteid='EBAY-US', debug=False, 
                   appid=APPID, 
@@ -70,7 +71,7 @@ def searchKeyword(keyword,categoryID,complete=False,reggae=False,pagenum=1):
                 'sortOrder' : 'StartTimeNewest',
                 'outputSelector': 'SellerInfo,AspectHistogram',    
                 'itemFilter': {'name':'ListingType','value':'Auction'},
-                'paginationInput': { 'entriesPerPage' : 100, 'pageNumber' : pagenum}}
+                'paginationInput': { 'entriesPerPage' : maxresults, 'pageNumber' : pagenum}}
     if reggae: args['aspectFilter'] = { 'aspectName' : 'Genre', 'aspectValueName':'Reggae, Ska & Dub'}
     if keyword!='': args['keywords'] = keyword
 
@@ -80,13 +81,14 @@ def searchKeyword(keyword,categoryID,complete=False,reggae=False,pagenum=1):
     ## Return XML String
     return api.response_content()
 
-def addItemsToDb(db,category,keywords,reggaeonly=False,pagenumber=1):
+def addItemsToDb(db,category,keywords,reggaeonly=False,max_results=100,pagenumber=1):
     print category, " / ",keywords
    
     responseString=searchKeyword(keywords, 
                                     categoryID=category,
                                     complete=False,
                                     reggae=reggaeonly,
+                                    maxresults=max_results,
                                     pagenum=pagenumber)
 
     responseDict = parseXML(responseString)
@@ -147,6 +149,7 @@ def insertNewItemIntoDb(db,ebayResponse):
     currentprice = currentprice.replace("'","''")
     bidcount = bidcount.replace("'","''")
     hitcount = hitcount.replace("'","''")
+    itemspecifics = itemspecifics.encode('utf-8')
 
     if item.findtext('BidCount','')=="0":
         startprice=item.findtext('CurrentPrice','')
@@ -163,34 +166,38 @@ def insertNewItemIntoDb(db,ebayResponse):
     
 def updateSingleEntry(db,itemid):
 
-    root = ET.fromstring(getSingleItem(itemid))
-    item = root.find('Item')
+    try: 
+        root = ET.fromstring(getSingleItem(itemid))
+        item = root.find('Item')
 
-    endtime = item.findtext('EndTime','')
-    timestamp = root.findtext('Timestamp','')
+        endtime = item.findtext('EndTime','')
+        timestamp = root.findtext('Timestamp','')
 
-    currentprice = ",{'"+ timestamp + "','" + item.findtext('CurrentPrice','') + "'}]"
-    bidcount = ",{'"+ timestamp + "','" + item.findtext('BidCount','') + "'}]"
-    hitcount = ",{'"+ timestamp + "','" + item.findtext('HitCount','') + "'}]"
-    
-    if timestamp>endtime: complete = 'true'
-    else: complete = 'false'
+        currentprice = ",{'"+ timestamp + "','" + item.findtext('CurrentPrice','') + "'}]"
+        bidcount = ",{'"+ timestamp + "','" + item.findtext('BidCount','') + "'}]"
+        hitcount = ",{'"+ timestamp + "','" + item.findtext('HitCount','') + "'}]"
+        
+        if timestamp>endtime: complete = 'true'
+        else: complete = 'false'
 
-    query="SELECT * FROM training_set WHERE itemid='"+itemid+"'"
-    results = db.execute(query)
-    for row in results:
-        print row[0]
-        currentprice = (row[19][:-1]+currentprice).replace("'","''")
-        bidcount = (row[20][:-1]+bidcount).replace("'","''")
-        hitcount = (row[21][:-1]+hitcount).replace("'","''")
+        query="SELECT * FROM training_set WHERE itemid='"+itemid+"'"
+        results = db.execute(query)
+        for row in results:
+            print row[0]
+            currentprice = (row[19][:-1]+currentprice).replace("'","''")
+            bidcount = (row[20][:-1]+bidcount).replace("'","''")
+            hitcount = (row[21][:-1]+hitcount).replace("'","''")
 
-    db.execute("UPDATE training_set SET currentprice='"+currentprice+"' WHERE itemid='" + itemid + "'")
-    db.execute("UPDATE training_set SET bidcount='"+bidcount+"' WHERE itemid='" + itemid + "'")
-    db.execute("UPDATE training_set SET hitcount='"+hitcount+"' WHERE itemid='" + itemid + "'")        
-    
-    if complete=='true':
-        db.execute("UPDATE training_set SET complete='"+complete+"' WHERE itemid='" + itemid + "'")
-        db.execute("UPDATE training_set SET endprice='"+item.findtext('CurrentPrice','') +"' WHERE itemid='" + itemid + "'")
+        db.execute("UPDATE training_set SET currentprice='"+currentprice+"' WHERE itemid='" + itemid + "'")
+        db.execute("UPDATE training_set SET bidcount='"+bidcount+"' WHERE itemid='" + itemid + "'")
+        db.execute("UPDATE training_set SET hitcount='"+hitcount+"' WHERE itemid='" + itemid + "'")        
+        
+        if complete=='true':
+            db.execute("UPDATE training_set SET complete='"+complete+"' WHERE itemid='" + itemid + "'")
+            db.execute("UPDATE training_set SET endprice='"+item.findtext('CurrentPrice','') +"' WHERE itemid='" + itemid + "'")
+
+    except:
+        pass
 
     
 def ebayScrape():
@@ -225,10 +232,8 @@ def ebayScrape():
             qString = "SELECT * FROM training_set"
             results = list(db.execute(qString))
 
-            if (startat+1000<len(results)):
-                results = results[startat:startat+1000]
-            else:
-                results = results[startat:]
+            #if (startat+1000<len(results)): results = results[startat:startat+1000]
+            #else: results = results[startat:]
                 
             print len(results)
 
