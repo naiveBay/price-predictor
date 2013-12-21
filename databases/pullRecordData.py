@@ -81,6 +81,14 @@ def searchKeyword(keyword,categoryID,complete=False,reggae=False,maxresults=100,
     ## Return XML String
     return api.response_content()
 
+
+## Performs a searchKeyword and adds all items to the db that are not already in the db.
+#  @param  { Cursor }   db          (SQLite3 database cursor)
+#  @param  { Str  }     category    (category ID number)
+#  @param  { Str  }     keyword
+#  @param  { Bool }     reggaeonly  (searches only the reggae genre)
+#  @param  { int  }     max_results (number of items per page to return; max=100)
+#  @param  { int  }     pagenumber  (100 items max returned, this chooses which page to return)
 def addItemsToDb(db,category,keywords,reggaeonly=False,max_results=100,pagenumber=1):
     print category, " / ",keywords
    
@@ -105,36 +113,36 @@ def addItemsToDb(db,category,keywords,reggaeonly=False,max_results=100,pagenumbe
     print category, " / ",keywords,": ",i," added"
     print
 
-
+## Takes ebay XML string for single item and inserts item into db.
+#  @param  { Cursor }   db           (SQLite3 database cursor)
+#  @param  { Str  }     ebayResponse (ebay XML string output from getSingleItem function)
 def insertNewItemIntoDb(db,ebayResponse):
-    #need to parse the ebay response for everything i want, set variables, put them into exstring
-
     root = ET.fromstring(ebayResponse)
     item = root.find('Item')
  
-    #Retrieve all information from the ebay xml string
-    itemid                  = item.findtext('ItemID','')
+    ## Retrieve all information from the ebay xml string
+    itemid                  = item.findtext('ItemID','').encode('utf-8')
     title                   = item.findtext('Title','').replace("'","''").encode('utf-8')
     subtitle                = item.findtext('Subtitle','').replace("'","''").encode('utf-8')
-    starttime               = item.findtext('StartTime','')
-    endtime                 = item.findtext('EndTime','')
-    timestamp               = root.findtext('Timestamp','')
-    categoryidprimary       = item.findtext('PrimaryCategoryID','')
-    categoryidsecondary     = item.findtext('SecondaryCategoryID','')
-    conditionid             = item.findtext('ConditionID','')
+    starttime               = item.findtext('StartTime','').encode('utf-8')
+    endtime                 = item.findtext('EndTime','').encode('utf-8')
+    timestamp               = root.findtext('Timestamp','').encode('utf-8')
+    categoryidprimary       = item.findtext('PrimaryCategoryID','').encode('utf-8')
+    categoryidsecondary     = item.findtext('SecondaryCategoryID','').encode('utf-8')
+    conditionid             = item.findtext('ConditionID','').encode('utf-8')
     description             = item.findtext('Description','').replace("'","''").encode('utf-8')
-    sellerfeedbackscore     = item.find('Seller').findtext('FeedbackScore','')
-    sellerfeedbackpercent   = item.find('Seller').findtext('PositiveFeedbackPercent','') 
-    returnpolicy            =  item.find('ReturnPolicy').findtext('ReturnsAccepted','') 
-    topratedlisting         = item.findtext('TopRatedListing','')
-    globalshipping          = item.findtext('GlobalShipping','')
+    sellerfeedbackscore     = item.find('Seller').findtext('FeedbackScore','').encode('utf-8')
+    sellerfeedbackpercent   = item.find('Seller').findtext('PositiveFeedbackPercent','').encode('utf-8')
+    returnpolicy            = item.find('ReturnPolicy').findtext('ReturnsAccepted','').encode('utf-8')
+    topratedlisting         = item.findtext('TopRatedListing','').encode('utf-8')
+    globalshipping          = item.findtext('GlobalShipping','').encode('utf-8')
 
     if ebayResponse.find('need more data to calculate shipping cost')!=-1:
-        shippingcost=''
+        shippingcost=''.encode('utf-8')
     else:
-        shippingcost = item.find('ShippingCostSummary').findtext('ShippingServiceCost','')
+        shippingcost = item.find('ShippingCostSummary').findtext('ShippingServiceCost','').encode('utf-8')
 
-    picture = item.findtext('PictureURL','')
+    picture = item.findtext('PictureURL','').encode('utf-8')
     currentprice = "[{'"+ timestamp + "','" + item.findtext('CurrentPrice','')  + "'}]"
     bidcount = "[{'"+ timestamp + "','" + item.findtext('BidCount','') + "'}]"
     hitcount = "[{'"+ timestamp + "','" + item.findtext('HitCount','') + "'}]"
@@ -142,30 +150,29 @@ def insertNewItemIntoDb(db,ebayResponse):
         itemspecifics = parseItemSpecifics(item.find('ItemSpecifics'))
         itemspecifics = itemspecifics.replace("'","''")
     else: itemspecifics = ""
-    if timestamp>endtime: complete = 'true'
-    else: complete = 'false'
+    if timestamp>endtime: complete = 'true'.encode('utf-8')
+    else: complete = 'false'.encode('utf-8')
 
-    #Some items can go straight into the db in this format, others need some work
-    currentprice = currentprice.replace("'","''")
-    bidcount = bidcount.replace("'","''")
-    hitcount = hitcount.replace("'","''")
+    if item.findtext('BidCount','')=="0":   startprice=item.findtext('CurrentPrice','').encode('utf-8')
+    else:                                   startprice='unknown'.encode('utf-8')
+    if complete=='true':                    endprice=item.findtext('CurrentPrice','').encode('utf-8')
+    else:                                   endprice=''.encode('utf-8')
+
+    ## Some items can go straight into the db in this format, others need some work
+    currentprice = currentprice.replace("'","''").encode('utf-8')
+    bidcount = bidcount.replace("'","''").encode('utf-8')
+    hitcount = hitcount.replace("'","''").encode('utf-8')
     itemspecifics = itemspecifics.encode('utf-8')
 
-    if item.findtext('BidCount','')=="0":
-        startprice=item.findtext('CurrentPrice','')
-    else:
-        startprice='unknown'
 
-    if complete=='true':
-        endprice=item.findtext('CurrentPrice','')
-    else: endprice=''
-    
     query="INSERT INTO training_set VALUES ('"+ itemid + "','" + title + "','" + subtitle + "','" + starttime + "','" + endtime + "','" + timestamp + "','" + complete + "','" + categoryidprimary + "','" + categoryidsecondary + "','" + conditionid + "','" + sellerfeedbackscore + "','" + sellerfeedbackpercent + "','" + returnpolicy + "','" + topratedlisting + "','" + shippingcost + "','" + globalshipping + "','" + description + "','" + picture + "','" + itemspecifics + "','" + currentprice + "','" + bidcount + "','" + hitcount + "','" + startprice + "','" + endprice + "')"
 
     db.execute(query)
     
+## Takes ebay item ID that is already in DB and updates time information (hits, bids, price). 
+#  @param  { Cursor }   db         (SQLite3 database cursor)
+#  @param  { Str  }     itemid     (ebay item ID #)
 def updateSingleEntry(db,itemid):
-
     try: 
         root = ET.fromstring(getSingleItem(itemid))
         item = root.find('Item')
@@ -176,7 +183,7 @@ def updateSingleEntry(db,itemid):
         currentprice = ",{'"+ timestamp + "','" + item.findtext('CurrentPrice','') + "'}]"
         bidcount = ",{'"+ timestamp + "','" + item.findtext('BidCount','') + "'}]"
         hitcount = ",{'"+ timestamp + "','" + item.findtext('HitCount','') + "'}]"
-        
+            
         if timestamp>endtime: complete = 'true'
         else: complete = 'false'
 
@@ -199,9 +206,70 @@ def updateSingleEntry(db,itemid):
     except:
         pass
 
-    
+
+## Takes ebay XML string from searchKeyword and parses XML to return a list of dicts. Each dict is
+## an eBay item. 
+#  @param  { Str  }         xmlString   
+#  @return { List[Dict[]]}  returnList
+def parseXML(xmlString):
+    root = ET.fromstring(xmlString)
+    items = root.find("searchResult").findall("item")
+
+    returnList = []
+
+    for item in items:
+        newEntry = dict()
+        newEntry['title'] = item.findtext('title','')
+        newEntry['itemId'] = item.findtext('itemId','')
+        newEntry['globalId'] = item.findtext('globalId','')
+        newEntry['location'] = item.findtext('location','')
+        newEntry['country'] = item.findtext('country','')
+        newEntry['galleryURL'] = item.findtext('galleryURL','')
+        newEntry['currentUSD'] = item.find('sellingStatus').findtext('convertedCurrentPrice','')
+        newEntry['bidCount'] = item.find('sellingStatus').findtext('bidCount','')
+        newEntry['startTime'] = item.find('listingInfo').findtext('startTime','')
+        newEntry['endTime'] = item.find('listingInfo').findtext('endTime','')
+        newEntry['listingType'] = item.find('listingInfo').findtext('listingType','')
+
+        returnList.append(newEntry);
+
+    return returnList
+
+
+## Takes an itemspec element tree and generates a formatted string for entry into a db.
+## [{'SpecName1','SpecValue1'},{'SpecName2','SpecValue2'},{'SpecName3','SpecValue3'}]
+#  @param  { ElementTree }     itemspecET   
+#  @return { str }             retstring
+def parseItemSpecifics(itemspecET):
+    retstring = '[';
+    for nameValuePair in itemspecET.findall('NameValueList'):
+        retstring += "{'" + nameValuePair.findtext('Name') + "','" + nameValuePair.findtext('Value') +  "'},"
+    return retstring[:-1]+']'
+
+
+## Takes XML string and prints to the console in a neat way. Used for visualizing and
+## debugging. Not implemented very well.
+#  @param  { str }    xmlString   
+def printXML(xmlString):
+    root = ET.fromstring(xmlString)
+
+    returnList=[]
+   
+    for i in range(0,len(root)):
+        print root[i].tag,root[i].attrib,root[i].text
+
+        for ii in range(0,len(root[i])):
+            print '\t', root[i][ii].tag,root[i][ii].attrib,root[i][ii].text          
+                
+            for iii in range(0,len(root[i][ii])):
+                print '\t\t', root[i][ii][iii].tag,root[i][ii][iii].attrib,root[i][ii][iii].text                   
+
+                for iiii in range(0,len(root[i][ii][iii])):
+                    print '\t\t\t',root[i][ii][iii][iiii].tag,root[i][ii][iii][iiii].attrib,root[i][ii][iii][iiii].text
+
+
+## Main Method  
 def ebayScrape():
-    '''Main method'''
 
     conn = sqlite3.connect('record_set.db')
     db = conn.cursor()
@@ -260,56 +328,6 @@ def ebayScrape():
             print "no comprendo"
 
         conn.commit()
-
-
-
-def parseXML(xmlString):
-    root = ET.fromstring(xmlString)
-    items = root.find("searchResult").findall("item")
-
-    returnList = []
-
-    for item in items:
-        newEntry = dict()
-        newEntry['title'] = item.findtext('title','')
-        newEntry['itemId'] = item.findtext('itemId','')
-        newEntry['globalId'] = item.findtext('globalId','')
-        newEntry['location'] = item.findtext('location','')
-        newEntry['country'] = item.findtext('country','')
-        newEntry['galleryURL'] = item.findtext('galleryURL','')
-        newEntry['currentUSD'] = item.find('sellingStatus').findtext('convertedCurrentPrice','')
-        newEntry['bidCount'] = item.find('sellingStatus').findtext('bidCount','')
-        newEntry['startTime'] = item.find('listingInfo').findtext('startTime','')
-        newEntry['endTime'] = item.find('listingInfo').findtext('endTime','')
-        newEntry['listingType'] = item.find('listingInfo').findtext('listingType','')
-
-        returnList.append(newEntry);
-
-    return returnList
-
-def printXML(xmlString):
-    ''' This could be done much better ... '''
-    root = ET.fromstring(xmlString)
-
-    returnList=[]
-   
-    for i in range(0,len(root)):
-        print root[i].tag,root[i].attrib,root[i].text
-
-        for ii in range(0,len(root[i])):
-            print '\t', root[i][ii].tag,root[i][ii].attrib,root[i][ii].text          
-                
-            for iii in range(0,len(root[i][ii])):
-                print '\t\t', root[i][ii][iii].tag,root[i][ii][iii].attrib,root[i][ii][iii].text                   
-
-                for iiii in range(0,len(root[i][ii][iii])):
-                    print '\t\t\t',root[i][ii][iii][iiii].tag,root[i][ii][iii][iiii].attrib,root[i][ii][iii][iiii].text
-
-def parseItemSpecifics(itemspecET):
-    retstring = '[';
-    for nameValuePair in itemspecET.findall('NameValueList'):
-        retstring += "{'" + nameValuePair.findtext('Name') + "','" + nameValuePair.findtext('Value') +  "'},"
-    return retstring[:-1]+']'
 
 
 

@@ -26,20 +26,25 @@ DEVID = '8b39a15d-e703-47bf-a7e7-db027f79100d'
 ## Will be important to check over word list and fix things like " = &quot;. 
 
 #########################################################################################################
-    
-if __name__ == "__main__":
-    conn = sqlite3.connect('/home/davidjn/webapps/nbdb/record_set.db')
+
+def addNewItems(db_file,category,results):
+    conn = sqlite3.connect(db_file)
     #conn = sqlite3.connect('record_set.db')
     db = conn.cursor()
-    addItemsToDb(db,"176985","",max_results=10)
+    addItemsToDb(db,category,"",max_results=results)
     conn.commit()
     conn.close()
 
-    conn = sqlite3.connect('/home/davidjn/webapps/nbdb/guitar_set.db')
-    #conn = sqlite3.connect('guitar_set.db')
-    db = conn.cursor()
-    addItemsToDb(db,"3858","",max_results=10)
-    conn.commit()
-    conn.close()
+
+if __name__ == "__main__":
+    #addNewItems('/home/davidjn/webapps/nbdb/record_set.db',"176985",12)
+    #addNewItems('/home/davidjn/webapps/nbdb/guitar_set.db',"33034",12)
+
+    addNewItems('record_set.db',"176985",12)
+    addNewItems('guitar_set.db',"33034",12)
+
+    #addNewItems('record_set.db',"176985",12)
+    #addNewItems('guitar_set.db',"33034",12)
+
 
 
