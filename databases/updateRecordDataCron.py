@@ -1,19 +1,6 @@
-import os,sys
-import urllib,urllib2
-import json
-import os.path
-import xml.etree.ElementTree as ET
-import sqlite3
-import ebaysdk
 from pullRecordData import *
-from ebaysdk import finding,trading,shopping
-from copy import *
-from optparse import OptionParser
-sys.path.insert(0, '%s/../' % os.path.dirname(__file__))
-
 
 #########################################################################################################
-
 
 ## Using this file requires that the eBay python API is already installed. The APPID, CERTID, and DEVID
 ## global variables must be updated below with those found in the users eBay developer accounts.
@@ -41,7 +28,8 @@ def updateDb(db_file):
 if __name__ == "__main__":
     updateDb('/home/davidjn/webapps/nbdb/record_set.db')
     updateDb('/home/davidjn/webapps/nbdb/guitar_set.db')
+    updateDb('/home/davidjn/webapps/nbdb/laptop_set.db')
 
     #updateDb('record_set.db')
     #updateDb('guitar_set.db')
-
+    #updateDb('laptop_set.db')

@@ -1,18 +1,15 @@
 import os,sys
 import urllib,urllib2
-import json
 import os.path
 import xml.etree.ElementTree as ET
 import sqlite3
 import ebaysdk
 from ebaysdk import finding,trading,shopping
 from copy import *
-from optparse import OptionParser
 sys.path.insert(0, '%s/../' % os.path.dirname(__file__))
 
 
 #########################################################################################################
-
 
 ## Using this file requires that the eBay python API (ebaysdk) is already installed. The APPID, CERTID, 
 ## and DEVID global variables must be updated below with those found in the users eBay developer 

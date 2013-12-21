@@ -1,19 +1,6 @@
-import os,sys
-import urllib,urllib2
-import json
-import os.path
-import xml.etree.ElementTree as ET
-import sqlite3
-import ebaysdk
 from pullRecordData import *
-from ebaysdk import finding,trading,shopping
-from copy import *
-from optparse import OptionParser
-sys.path.insert(0, '%s/../' % os.path.dirname(__file__))
-
 
 #########################################################################################################
-
 
 ## Using this file requires that the eBay python API is already installed. The APPID, CERTID, and DEVID
 ## global variables must be updated below with those found in the users eBay developer accounts.
@@ -35,16 +22,11 @@ def addNewItems(db_file,category,results):
     conn.commit()
     conn.close()
 
-
 if __name__ == "__main__":
-    #addNewItems('/home/davidjn/webapps/nbdb/record_set.db',"176985",12)
-    #addNewItems('/home/davidjn/webapps/nbdb/guitar_set.db',"33034",12)
+    addNewItems('/home/davidjn/webapps/nbdb/record_set.db',"176985",12)
+    addNewItems('/home/davidjn/webapps/nbdb/guitar_set.db',"33034",36)
+    addNewItems('/home/davidjn/webapps/nbdb/laptop_set.db',"175672",36)
 
-    addNewItems('record_set.db',"176985",12)
+    '''addNewItems('record_set.db',"176985",12)
     addNewItems('guitar_set.db',"33034",12)
-
-    #addNewItems('record_set.db',"176985",12)
-    #addNewItems('guitar_set.db',"33034",12)
-
-
-
+    addNewItems('laptop_set.db',"175672",12)'''

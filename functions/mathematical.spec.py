@@ -5,6 +5,7 @@ def runTests():
     runThresholdTest();
     runSigmoidTest();
     runSquaredNormTest();
+    runClassificationErrorTest();
 
 def runThresholdTest():
     thresh = 5;
@@ -48,6 +49,22 @@ def runSquaredNormTest():
 
     if(fail):
         print "Squared Norm Function has failed!";
+
+def runClassificationErrorTest():
+    fail = False;
+    p2 = [0,1,0];
+    a2 = [0,1,1];
+
+    if (m.classificationError([0],[0]) != 0):       fail = True;
+    if (m.classificationError([0],[1]) != 1):       fail = True;
+    if (m.classificationError([0],[-1]) != 1):      fail = True;
+
+    if (m.classificationError([0,0],[0,0]) != 0):   fail = True;
+    if (m.classificationError([0,0],[0,1]) != 0.5): fail = True;
+    if (m.classificationError([0,0],[1,1]) != 1):   fail = True;
+
+    if (fail):
+        print "Classification Error has failed!";
 
 if __name__ == "__main__":
     runTests();

@@ -36,3 +36,26 @@ def squaredNorm(v):
     for x in v:
         sqn += x**2;
     return sqn;
+
+## Classification error between two lists.
+#  @param  {list[]}  predictions
+#  @param  {list[]}  actual
+#  @return {float}   classification error
+def classificationError(predictions,actual):
+    error = 0;
+    for item in range(len(predictions)):
+        if (predictions[item] != actual[item]): error +=1
+
+    return float(error) / float(len(predictions));
+
+## Similar to python's range, but returns a float range.
+#  @param  {float}  x
+#  @param  {float}  y
+#  @param  {float}  jump
+#  @return {list[]} list [x,x+jump,x+2*jump,...,] up to final value < y
+def frange(x, y, jump):
+    arr = [];
+    while x < y:
+       arr.append(x);
+       x += jump;
+    return arr;
