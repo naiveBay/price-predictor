@@ -54,8 +54,6 @@ def classificationError(predictions,actual):
 #  @param  {float}  jump
 #  @return {list[]} list [x,x+jump,x+2*jump,...,] up to final value < y
 def frange(x, y, jump):
-    arr = [];
-    while x < y:
-       arr.append(x);
-       x += jump;
-    return arr;
+    x = float(x)
+    count = int(math.ceil(y - x)/jump)
+    return [x + n*jump for n in range(count)]

@@ -6,6 +6,7 @@ def runTests():
     runSigmoidTest();
     runSquaredNormTest();
     runClassificationErrorTest();
+    ##runFrangeTest();   ## See notes in function
 
 def runThresholdTest():
     thresh = 5;
@@ -64,7 +65,19 @@ def runClassificationErrorTest():
     if (m.classificationError([0,0],[1,1]) != 1):   fail = True;
 
     if (fail):
-        print "Classification Error has failed!";
+        print "Classification Error Function has failed!";
+
+def runFrangeTest():
+    ## Python frange is a funny thing.
+    ## See http://code.activestate.com/recipes/66472/
+    ## For now, we will live with small floating point errors.
+
+    fail = False
+
+    if (m.frange(0,1,0.2) != (0,0.2,0.4,0.8) ):    fail = True
+
+    if (fail):
+        print "Float range function has failed!"
 
 if __name__ == "__main__":
     runTests();
