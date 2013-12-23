@@ -165,7 +165,60 @@ def insertNewItemIntoDb(db,ebayResponse):
     query="INSERT INTO training_set VALUES ('"+ itemid + "','" + title + "','" + subtitle + "','" + starttime + "','" + endtime + "','" + timestamp + "','" + complete + "','" + categoryidprimary + "','" + categoryidsecondary + "','" + conditionid + "','" + sellerfeedbackscore + "','" + sellerfeedbackpercent + "','" + returnpolicy + "','" + topratedlisting + "','" + shippingcost + "','" + globalshipping + "','" + description + "','" + picture + "','" + itemspecifics + "','" + currentprice + "','" + bidcount + "','" + hitcount + "','" + startprice + "','" + endprice + "')"
 
     db.execute(query)
-    
+
+
+def singleItemToArray(ebayResponse):
+    root = ET.fromstring(ebayResponse)
+    item = root.find('Item')
+ 
+    ## Retrieve all information from the ebay xml string
+    itemid                  = item.findtext('ItemID','').encode('utf-8')
+    title                   = item.findtext('Title','').replace("'","''").encode('utf-8')
+    subtitle                = item.findtext('Subtitle','').replace("'","''").encode('utf-8')
+    starttime               = item.findtext('StartTime','').encode('utf-8')
+    endtime                 = item.findtext('EndTime','').encode('utf-8')
+    timestamp               = root.findtext('Timestamp','').encode('utf-8')
+    categoryidprimary       = item.findtext('PrimaryCategoryID','').encode('utf-8')
+    categoryidsecondary     = item.findtext('SecondaryCategoryID','').encode('utf-8')
+    conditionid             = item.findtext('ConditionID','').encode('utf-8')
+    description             = item.findtext('Description','').replace("'","''").encode('utf-8')
+    sellerfeedbackscore     = item.find('Seller').findtext('FeedbackScore','').encode('utf-8')
+    sellerfeedbackpercent   = item.find('Seller').findtext('PositiveFeedbackPercent','').encode('utf-8')
+    returnpolicy            = item.find('ReturnPolicy').findtext('ReturnsAccepted','').encode('utf-8')
+    topratedlisting         = item.findtext('TopRatedListing','').encode('utf-8')
+    globalshipping          = item.findtext('GlobalShipping','').encode('utf-8')
+
+    if ebayResponse.find('need more data to calculate shipping cost')!=-1:
+        shippingcost=''.encode('utf-8')
+    else:
+        shippingcost = item.find('ShippingCostSummary').findtext('ShippingServiceCost','').encode('utf-8')
+
+    picture = item.findtext('PictureURL','').encode('utf-8')
+    currentprice = "[{'"+ timestamp + "','" + item.findtext('CurrentPrice','')  + "'}]"
+    bidcount = "[{'"+ timestamp + "','" + item.findtext('BidCount','') + "'}]"
+    hitcount = "[{'"+ timestamp + "','" + item.findtext('HitCount','') + "'}]"
+    if item.find('ItemSpecifics')!=None:
+        itemspecifics = parseItemSpecifics(item.find('ItemSpecifics'))
+        itemspecifics = itemspecifics.replace("'","''")
+    else: itemspecifics = ""
+    if timestamp>endtime: complete = 'true'.encode('utf-8')
+    else: complete = 'false'.encode('utf-8')
+
+    if item.findtext('BidCount','')=="0":   startprice=item.findtext('CurrentPrice','').encode('utf-8')
+    else:                                   startprice='unknown'.encode('utf-8')
+    if complete=='true':                    endprice=item.findtext('CurrentPrice','').encode('utf-8')
+    else:                                   endprice=''.encode('utf-8')
+
+    ## Some items can go straight into the db in this format, others need some work
+    currentprice = currentprice.replace("'","''").encode('utf-8')
+    bidcount = bidcount.replace("'","''").encode('utf-8')
+    hitcount = hitcount.replace("'","''").encode('utf-8')
+    itemspecifics = itemspecifics.encode('utf-8')
+
+
+    retarr= [itemid,title,subtitle,starttime,endtime,timestamp,complete,categoryidprimary,categoryidsecondary,conditionid ,sellerfeedbackscore , sellerfeedbackpercent ,returnpolicy , topratedlisting , shippingcost ,globalshipping , description , picture ,itemspecifics ,currentprice , bidcount, hitcount ,startprice ,endprice ]
+    return retarr
+
 ## Takes ebay item ID that is already in DB and updates time information (hits, bids, price). 
 #  @param  { Cursor }   db         (SQLite3 database cursor)
 #  @param  { Str  }     itemid     (ebay item ID #)

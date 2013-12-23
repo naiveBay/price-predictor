@@ -54,6 +54,47 @@ def classificationError(predictions,actual):
 #  @param  {float}  jump
 #  @return {list[]} list [x,x+jump,x+2*jump,...,] up to final value < y
 def frange(x, y, jump):
+    ## Susceptible to small roundoff errors. See mathematical.spec.py.
     x = float(x)
     count = int(math.ceil(y - x)/jump)
     return [x + n*jump for n in range(count)]
+
+## Takes bin array and an float price, returns bin value corresponding to price.
+## Eg. getBinOf([0,5,10,15,20],12.22) = 10
+#  @param  {list[]}  bins  
+#  @param  {float}   price  
+#  @return {float}   bin 
+def getBinOf(bins,price):
+    bin = -1;
+    for i in range(len(bins)):
+        if bins[i] > price and bin == -1: 
+            if i==0:    bin = 0
+            else:       bin = bins[i-1];
+
+    if bin == -1: bin = bins[len(bins)-1];
+    return bin
+
+## Takes bin size and max value and generates an array of bin values.
+#  @param  {int}      binSize 
+#  @param  {int}      maxVal 
+#  @return {list[]}   arr 
+def generateBinArray(binSize,maxVal):
+    arr = [];
+    for i in range(int(maxVal/binSize)):
+        arr.append(binSize*i);
+    return arr
+
+
+## Takes bin array and an array prices. Returns array of final price bins.
+#  @param  {list[]}  bins  
+#  @param  {list[]}  prices  
+#  @return {list[]}  binnedPrices
+def binListOfPrices(bins,prices):
+    binnedPrices = [-1]*len(prices);
+    for i_item in range(len(prices)):
+        for i in range(len(bins)-1):
+            if prices[i_item] >= bins[i] and prices[i_item]<bins[i+1]:
+                binnedPrices[i_item] = bins[i];
+
+        if binnedPrices[i_item] == -1: binnedPrices[i_item] = bins[-1];
+    return binnedPrices
